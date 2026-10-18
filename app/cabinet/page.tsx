@@ -2,7 +2,8 @@ import { redirect } from 'next/navigation';
 import { sql } from '@/lib/db';
 import { getSession } from '@/lib/session';
 import { Stats } from '@/components/Stats';
-import { logout } from './actions';
+import { TopBar } from '@/components/TopBar';
+import { PeriodTabs } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,14 +19,18 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ d
   if (!venue) redirect('/login');
 
   return (
-    <main className="mx-auto max-w-2xl space-y-8 p-4">
-      <header className="flex items-start justify-between gap-4">
-        <h1 className="text-xl font-semibold">{venue.name}</h1>
-        <form action={logout}>
-          <button className="text-sm text-gray-500 underline">Выйти</button>
-        </form>
-      </header>
-      <Stats venueId={session.venueId} days={range} />
-    </main>
+    <>
+      <TopBar title={venue.name} subtitle="Личный кабинет" />
+      <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-ink">Обзор</h1>
+            <p className="mt-1 text-sm text-muted">Переходы гостей по NFC-меткам на страницу отзывов</p>
+          </div>
+          <PeriodTabs days={range} />
+        </div>
+        <Stats venueId={session.venueId} days={range} />
+      </main>
+    </>
   );
 }

@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { redirect } from 'next/navigation';
 import { sql } from '@/lib/db';
 import { createSession } from '@/lib/session';
+import { Logo, btnPrimary, inputCls } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,14 +26,26 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
   const { error } = await searchParams;
 
   return (
-    <main className="mx-auto mt-24 max-w-xs p-4">
-      <h1 className="mb-4 text-xl font-semibold">Вход</h1>
-      <form action={login} className="flex flex-col gap-3">
-        <input name="email" type="email" placeholder="Email" required autoComplete="username" className="rounded border bg-white p-2" />
-        <input name="password" type="password" placeholder="Пароль" required autoComplete="current-password" className="rounded border bg-white p-2" />
-        {error && <p className="text-sm text-red-600">Неверный email или пароль</p>}
-        <button className="rounded bg-black p-2 text-white">Войти</button>
-      </form>
+    <main className="flex min-h-screen items-center justify-center px-4 py-12">
+      <div className="w-full max-w-sm">
+        <div className="mb-6 flex flex-col items-center text-center">
+          <Logo size={44} />
+          <h1 className="mt-4 text-xl font-semibold tracking-tight text-ink">Вход в кабинет</h1>
+          <p className="mt-1 text-sm text-muted">Статистика отзывов по NFC-меткам</p>
+        </div>
+        <form action={login} className="space-y-4 rounded-xl bg-card p-6 shadow-sm ring-1 ring-line">
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-ink">Email</span>
+            <input name="email" type="email" placeholder="you@example.com" required autoComplete="username" className={inputCls} />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-ink">Пароль</span>
+            <input name="password" type="password" placeholder="••••••••" required autoComplete="current-password" className={inputCls} />
+          </label>
+          {error && <p className="rounded-lg bg-bad-soft px-3 py-2 text-sm text-bad">Неверный email или пароль</p>}
+          <button className={`${btnPrimary} w-full`}>Войти</button>
+        </form>
+      </div>
     </main>
   );
 }

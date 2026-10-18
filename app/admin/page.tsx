@@ -2,7 +2,10 @@ import { headers } from 'next/headers';
 import { sql } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin';
 import { baseUrl } from '@/lib/url';
-import { logout } from '@/app/cabinet/actions';
+import { clicksWord, plural } from '@/lib/format';
+import { TopBar } from '@/components/TopBar';
+import { Badge, CARRIERS, Card, Empty } from '@/components/ui';
+import { CopyButton } from '@/components/CopyButton';
 import { ClientForm, EditUrl, ResetForm, TagForm } from './forms';
 
 export const dynamic = 'force-dynamic';
@@ -17,33 +20,73 @@ export default async function Page() {
            (select count(*)::int from clicks c where c.tag_id = t.id and not c.is_bot) as clicks
     from tags t join venues v on v.id = t.venue_id
     order by v.name, t.created_at`;
+  const clients = await sql`
+    select u.email, v.name as venue, (select count(*)::int from tags t where t.venue_id = v.id) as tags
+    from users u join venues v on v.id = u.venue_id
+    where not u.is_admin
+    order by v.name`;
 
   return (
-    <main className="mx-auto max-w-2xl space-y-6 p-4">
-      <header className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Админка</h1>
-        <form action={logout}>
-          <button className="text-sm text-gray-500 underline">Выйти</button>
-        </form>
-      </header>
+    <>
+      <TopBar title="Админка" subtitle={`${venues.length} ${plural(venues.length, ['заведение', 'заведения', 'заведений'])} · ${tags.length} ${plural(tags.length, ['метка', 'метки', 'меток'])}`} />
+      <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+        <div className="grid gap-6 lg:grid-cols-2">
+          <ClientForm />
+          <div className="space-y-6">
+            <TagForm venues={venues} />
+            <ResetForm />
+          </div>
+        </div>
 
-      <ClientForm />
-      <TagForm venues={venues} />
-      <ResetForm />
+        <Card title="Клиенты" subtitle="Логины для входа в кабинет" flush>
+          {clients.length === 0 ? (
+            <div className="px-5 pb-5"><Empty text="Пока нет клиентов" /></div>
+          ) : (
+            <ul className="divide-y divide-line border-t border-line">
+              {clients.map((c) => (
+                <li key={c.email} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3">
+                  <span className="min-w-32 font-medium text-ink">{c.venue}</span>
+                  <code className="min-w-0 flex-1 truncate text-sm text-ink-2">{c.email}</code>
+                  <span className="text-xs text-muted">
+                    {c.tags} {plural(c.tags, ['метка', 'метки', 'меток'])}
+                  </span>
+                  <CopyButton text={c.email} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
 
-      <section>
-        <h2 className="mb-2 font-medium">Метки</h2>
-        {tags.length === 0 && <p className="text-sm text-gray-500">Пока нет меток</p>}
-        <ul className="space-y-2 text-sm">
-          {tags.map((t) => (
-            <li key={t.code} className="rounded border bg-white p-2">
-              <b>{t.venue}</b> · {t.location_label ?? '—'} ({t.carrier ?? '—'}) · {t.clicks} кл.
-              <div className="break-all text-gray-500">{base}/r/{t.code}</div>
-              <EditUrl code={t.code} url={t.target_url} />
-            </li>
-          ))}
-        </ul>
-      </section>
-    </main>
+        <Card title="Метки" subtitle="Ссылки для записи на NFC и цели редиректа" flush>
+          {tags.length === 0 ? (
+            <div className="px-5 pb-5"><Empty text="Пока нет меток" /></div>
+          ) : (
+            <ul className="divide-y divide-line border-t border-line">
+              {tags.map((t) => {
+                const link = `${base}/r/${t.code}`;
+                return (
+                  <li key={t.code} className="space-y-2.5 px-5 py-4">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="font-medium text-ink">{t.venue}</span>
+                      <span className="text-muted">·</span>
+                      <span className="text-sm text-ink-2">{t.location_label ?? 'без места'}</span>
+                      {t.carrier && <Badge>{CARRIERS[t.carrier] ?? t.carrier}</Badge>}
+                      <span className="ml-auto text-sm font-medium tabular-nums text-ink">
+                        {t.clicks} <span className="font-normal text-muted">{clicksWord(t.clicks)}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <code className="min-w-0 flex-1 truncate rounded-md bg-page px-2 py-1 text-xs text-ink-2 ring-1 ring-line">{link}</code>
+                      <CopyButton text={link} />
+                    </div>
+                    <EditUrl code={t.code} url={t.target_url} />
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
+      </main>
+    </>
   );
 }

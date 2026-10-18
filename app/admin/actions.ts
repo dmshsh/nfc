@@ -7,7 +7,9 @@ import { sql } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin';
 import { assertAllowedUrl, baseUrl } from '@/lib/url';
 
-export type State = { ok?: string; error?: string } | null;
+// rows — данные для показа (secret скрывается звёздочками), ok — текст для копирования
+export type Row = { label: string; value: string; secret?: boolean };
+export type State = { ok?: string; error?: string; rows?: Row[] } | null;
 
 const CARRIERS = ['sticker', 'tent', 'receipt', 'stand'];
 
@@ -44,7 +46,13 @@ export async function createClient(_: State, fd: FormData): Promise<State> {
   const base = baseUrl(await headers());
   revalidatePath('/admin');
   return {
-    ok: `Логин: ${email}\nПароль: ${password}\nВход: ${base}/login\n\nСсылка для NFC-метки:\n${base}/r/${code}\n\n(пароль показывается один раз)`,
+    ok: `Логин: ${email}\nПароль: ${password}\nВход: ${base}/login\n\nСсылка для NFC-метки:\n${base}/r/${code}`,
+    rows: [
+      { label: 'Логин', value: email },
+      { label: 'Пароль', value: password, secret: true },
+      { label: 'Вход', value: `${base}/login` },
+      { label: 'Ссылка для NFC', value: `${base}/r/${code}` },
+    ],
   };
 }
 
@@ -98,5 +106,11 @@ export async function resetPassword(_: State, fd: FormData): Promise<State> {
   const hash = await bcrypt.hash(password, 12);
   const r = await sql`update users set password_hash = ${hash} where email = ${email} and not is_admin returning id`;
   if (!r.length) return { error: 'Пользователь не найден' };
-  return { ok: `Новый пароль: ${password}\n(показывается один раз)` };
+  return {
+    ok: `Логин: ${email}\nПароль: ${password}`,
+    rows: [
+      { label: 'Логин', value: email },
+      { label: 'Пароль', value: password, secret: true },
+    ],
+  };
 }
