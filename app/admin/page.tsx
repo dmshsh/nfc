@@ -6,7 +6,7 @@ import { clicksWord, plural } from '@/lib/format';
 import { TopBar } from '@/components/TopBar';
 import { Badge, CARRIERS, Card, Empty } from '@/components/ui';
 import { CopyButton } from '@/components/CopyButton';
-import { ClientForm, EditUrl, ResetForm, TagForm } from './forms';
+import { ClientForm, EditTag, ResetForm, TagForm } from './forms';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,7 +79,7 @@ export default async function Page() {
                       <code className="min-w-0 flex-1 truncate rounded-md bg-page px-2 py-1 text-xs text-ink-2 ring-1 ring-line">{link}</code>
                       <CopyButton text={link} />
                     </div>
-                    <EditUrl code={t.code} url={t.target_url} />
+                    <EditTag code={t.code} url={t.target_url} carrier={t.carrier} />
                   </li>
                 );
               })}

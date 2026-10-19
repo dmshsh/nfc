@@ -5,6 +5,7 @@ export const CARRIERS: Record<string, string> = {
   tent: 'Тейбл-тент',
   receipt: 'Чек',
   stand: 'Стойка',
+  cashier: 'Касса',
 };
 
 export const inputCls =

@@ -4,13 +4,13 @@ import { AreaChart, HourChart } from './charts';
 import { Badge, CARRIERS, Card, Empty } from './ui';
 
 type Row = { label: string; n: number };
-type TagRow = { code: string; label: string; carrier: string | null; n: number; last: string | Date | null };
+type TagRow = { code: string; label: string; carrier: string | null; n: number; u: number; last: string | Date | null };
 
 const TZ = 'Asia/Almaty';
 
 // Все выборки считаются по календарным дням Алматы: последние `days` дней, включая сегодня
 export async function Stats({ venueId, days }: { venueId: string; days: number }) {
-  const [daily, [prev], byCarrier, byOs, byHour, tags] = (await Promise.all([
+  const [daily, [prev], [uniq], byCarrier, byOs, byHour, tags] = (await Promise.all([
     sql`
       select to_char(d, 'YYYY-MM-DD') as date, coalesce(x.n, 0)::int as n
       from generate_series(
@@ -32,6 +32,12 @@ export async function Stats({ venueId, days }: { venueId: string; days: number }
         and (c.ts at time zone 'Asia/Almaty')::date
             between (now() at time zone 'Asia/Almaty')::date - (${2 * days - 1})::int
                 and (now() at time zone 'Asia/Almaty')::date - (${days})::int`,
+    // Уникальные гости — разные visitor_id (переходы до появления cookie не учитываются)
+    sql`
+      select count(distinct c.visitor_id)::int as n
+      from clicks c join tags t on t.id = c.tag_id
+      where t.venue_id = ${venueId} and not c.is_bot
+        and (c.ts at time zone 'Asia/Almaty')::date > (now() at time zone 'Asia/Almaty')::date - (${days})::int`,
     sql`
       select coalesce(t.carrier, 'Другое') as label, count(*)::int as n
       from clicks c join tags t on t.id = c.tag_id
@@ -55,12 +61,15 @@ export async function Stats({ venueId, days }: { venueId: string; days: number }
              count(c.id) filter (
                where (c.ts at time zone 'Asia/Almaty')::date > (now() at time zone 'Asia/Almaty')::date - (${days})::int
              )::int as n,
+             count(distinct c.visitor_id) filter (
+               where (c.ts at time zone 'Asia/Almaty')::date > (now() at time zone 'Asia/Almaty')::date - (${days})::int
+             )::int as u,
              max(c.ts) as last
       from tags t left join clicks c on c.tag_id = t.id and not c.is_bot
       where t.venue_id = ${venueId}
       group by t.id
       order by n desc, t.created_at`,
-  ])) as unknown as [{ date: string; n: number }[], Row[], Row[], Row[], Row[], TagRow[]];
+  ])) as unknown as [{ date: string; n: number }[], Row[], Row[], Row[], Row[], Row[], TagRow[]];
 
   const total = daily.reduce((s, r) => s + r.n, 0);
   const today = daily.at(-1)?.n ?? 0;
@@ -70,8 +79,9 @@ export async function Stats({ venueId, days }: { venueId: string; days: number }
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <Kpi label={`Переходы за ${days} дн.`} value={total.toLocaleString('ru-RU')} foot={<Delta cur={total} prev={prev.n} days={days} />} />
+        <Kpi label="Уникальные гости" value={uniq.n.toLocaleString('ru-RU')} foot="разных телефонов" />
         <Kpi label="Сегодня" value={today.toLocaleString('ru-RU')} foot={clicksWord(today)} />
         <Kpi label="В среднем в день" value={avg} foot="переходов" />
         <Kpi
@@ -79,6 +89,7 @@ export async function Stats({ venueId, days }: { venueId: string; days: number }
           value={best?.label ?? '—'}
           foot={best ? `${best.n} ${clicksWord(best.n)}` : 'нет переходов'}
           small
+          className="col-span-2 lg:col-span-1"
         />
       </div>
 
@@ -106,9 +117,9 @@ export async function Stats({ venueId, days }: { venueId: string; days: number }
   );
 }
 
-function Kpi({ label, value, foot, small }: { label: string; value: string; foot: React.ReactNode; small?: boolean }) {
+function Kpi({ label, value, foot, small, className = '' }: { label: string; value: string; foot: React.ReactNode; small?: boolean; className?: string }) {
   return (
-    <div className="rounded-xl bg-card p-4 shadow-xs ring-1 ring-line sm:p-5">
+    <div className={`rounded-xl bg-card p-4 shadow-xs ring-1 ring-line sm:p-5 ${className}`}>
       <p className="text-xs font-medium text-muted sm:text-sm">{label}</p>
       <p className={`mt-2 truncate font-semibold tracking-tight text-ink ${small ? 'text-lg sm:text-xl' : 'text-2xl sm:text-3xl'}`}>
         {value}
@@ -164,12 +175,13 @@ function TagTable({ rows, total }: { rows: TagRow[]; total: number }) {
   if (rows.length === 0) return <div className="px-5 pb-5"><Empty text="Меток пока нет" /></div>;
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[560px] text-sm">
+      <table className="w-full min-w-[640px] text-sm">
         <thead>
           <tr className="border-y border-line bg-page/60 text-left text-xs text-muted">
             <th className="px-5 py-2.5 font-medium">Место</th>
             <th className="px-3 py-2.5 font-medium">Носитель</th>
             <th className="px-3 py-2.5 text-right font-medium">Переходы</th>
+            <th className="px-3 py-2.5 text-right font-medium">Уникальные</th>
             <th className="px-3 py-2.5 font-medium">Доля</th>
             <th className="px-5 py-2.5 text-right font-medium">Последний переход</th>
           </tr>
@@ -182,6 +194,7 @@ function TagTable({ rows, total }: { rows: TagRow[]; total: number }) {
                 <td className="px-5 py-3 font-medium text-ink">{r.label}</td>
                 <td className="px-3 py-3">{r.carrier ? <Badge>{CARRIERS[r.carrier] ?? r.carrier}</Badge> : <span className="text-muted">—</span>}</td>
                 <td className="px-3 py-3 text-right font-medium tabular-nums text-ink">{r.n}</td>
+                <td className="px-3 py-3 text-right tabular-nums text-ink-2">{r.u}</td>
                 <td className="px-3 py-3">
                   <div className="flex items-center gap-2">
                     <div className="h-1.5 w-20 overflow-hidden rounded-full bg-grid">

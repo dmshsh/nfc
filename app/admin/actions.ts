@@ -6,12 +6,13 @@ import { revalidatePath } from 'next/cache';
 import { sql } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin';
 import { assertAllowedUrl, baseUrl } from '@/lib/url';
+import { CARRIERS as CARRIER_LABELS } from '@/components/ui';
 
 // rows — данные для показа (secret скрывается звёздочками), ok — текст для копирования
 export type Row = { label: string; value: string; secret?: boolean };
 export type State = { ok?: string; error?: string; rows?: Row[] } | null;
 
-const CARRIERS = ['sticker', 'tent', 'receipt', 'stand'];
+const CARRIERS = Object.keys(CARRIER_LABELS);
 
 // Заведение + аккаунт + первая метка одной операцией
 export async function createClient(_: State, fd: FormData): Promise<State> {
@@ -20,6 +21,7 @@ export async function createClient(_: State, fd: FormData): Promise<State> {
   const email = String(fd.get('email') ?? '').trim().toLowerCase();
   const targetUrl = String(fd.get('targetUrl') ?? '').trim();
   const label = String(fd.get('label') ?? '').trim();
+  const carrier = String(fd.get('carrier') ?? '');
   if (!name || !email) return { error: 'Заполните название и email' };
 
   try {
@@ -37,8 +39,8 @@ export async function createClient(_: State, fd: FormData): Promise<State> {
       with v as (insert into venues (name) values (${name}) returning id),
            u as (insert into users (email, password_hash, venue_id)
                  select ${email}, ${hash}, id from v)
-      insert into tags (code, venue_id, location_label, target_url)
-      select ${code}, id, ${label || null}, ${targetUrl} from v`;
+      insert into tags (code, venue_id, location_label, carrier, target_url)
+      select ${code}, id, ${label || null}, ${CARRIERS.includes(carrier) ? carrier : null}, ${targetUrl} from v`;
   } catch {
     return { error: 'Не удалось создать (возможно, такой email уже есть)' };
   }
@@ -83,10 +85,11 @@ export async function createTag(_: State, fd: FormData): Promise<State> {
   return { ok: `${base}/r/${code}` };
 }
 
-export async function updateTagUrl(_: State, fd: FormData): Promise<State> {
+export async function updateTag(_: State, fd: FormData): Promise<State> {
   await requireAdmin();
   const code = String(fd.get('code') ?? '');
   const targetUrl = String(fd.get('targetUrl') ?? '').trim();
+  const carrier = String(fd.get('carrier') ?? '');
 
   try {
     assertAllowedUrl(targetUrl);
@@ -94,7 +97,9 @@ export async function updateTagUrl(_: State, fd: FormData): Promise<State> {
     return { error: 'Ссылка не подходит' };
   }
 
-  const r = await sql`update tags set target_url = ${targetUrl} where code = ${code} returning id`;
+  const r = await sql`
+    update tags set target_url = ${targetUrl}, carrier = ${CARRIERS.includes(carrier) ? carrier : null}
+    where code = ${code} returning id`;
   revalidatePath('/admin');
   return r.length ? { ok: 'Сохранено' } : { error: 'Метка не найдена' };
 }

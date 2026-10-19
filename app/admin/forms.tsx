@@ -2,7 +2,7 @@
 import { useActionState, useState } from 'react';
 import { CopyButton } from '@/components/CopyButton';
 import { CARRIERS, Card, btnPrimary, inputCls } from '@/components/ui';
-import { createClient, createTag, resetPassword, updateTagUrl, type Row, type State } from './actions';
+import { createClient, createTag, resetPassword, updateTag, type Row, type State } from './actions';
 
 function Result({ state }: { state: State }) {
   if (!state) return null;
@@ -51,7 +51,10 @@ export function ClientForm() {
         <input name="name" placeholder="Название заведения" required className={inputCls} />
         <input name="email" type="email" placeholder="Email клиента (логин)" required className={inputCls} />
         <input name="targetUrl" placeholder="Ссылка на форму отзыва (Google / 2GIS)" required className={inputCls} />
-        <input name="label" placeholder="Место метки (необязательно)" className={inputCls} />
+        <div className="grid grid-cols-2 gap-3">
+          <input name="label" placeholder="Место метки (необязательно)" className={inputCls} />
+          <CarrierSelect className={inputCls} />
+        </div>
         <button disabled={pending} className={btnPrimary}>{pending ? 'Создаю…' : 'Создать клиента'}</button>
         <Result state={state} />
       </form>
@@ -71,11 +74,7 @@ export function TagForm({ venues }: { venues: { id: string; name: string }[] }) 
         </select>
         <div className="grid grid-cols-2 gap-3">
           <input name="label" placeholder="Место (Стол 5)" className={inputCls} />
-          <select name="carrier" className={inputCls}>
-            {Object.entries(CARRIERS).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
+          <CarrierSelect className={inputCls} />
         </div>
         <input name="targetUrl" placeholder="Ссылка на форму отзыва" required className={inputCls} />
         <button disabled={pending} className={btnPrimary}>{pending ? 'Создаю…' : 'Создать метку'}</button>
@@ -85,11 +84,28 @@ export function TagForm({ venues }: { venues: { id: string; name: string }[] }) 
   );
 }
 
-export function EditUrl({ code, url }: { code: string; url: string }) {
-  const [state, action, pending] = useActionState(updateTagUrl, null);
+// allowEmpty — для старых меток без носителя: пустое значение сохраняется как null
+function CarrierSelect({ className, defaultValue, allowEmpty }: { className: string; defaultValue?: string; allowEmpty?: boolean }) {
   return (
-    <form action={action} className="flex items-center gap-2">
+    <select name="carrier" defaultValue={defaultValue} className={className}>
+      {allowEmpty && <option value="">Носитель не указан</option>}
+      {Object.entries(CARRIERS).map(([k, v]) => (
+        <option key={k} value={k}>{v}</option>
+      ))}
+    </select>
+  );
+}
+
+export function EditTag({ code, url, carrier }: { code: string; url: string; carrier: string | null }) {
+  const [state, action, pending] = useActionState(updateTag, null);
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-2">
       <input type="hidden" name="code" value={code} />
+      <CarrierSelect
+        defaultValue={carrier ?? ''}
+        allowEmpty={!carrier}
+        className={`${inputCls} h-8 w-auto shrink-0 py-0 text-xs`}
+      />
       <input name="targetUrl" defaultValue={url} required className={`${inputCls} h-8 min-w-0 flex-1 text-xs`} />
       <button disabled={pending} className="h-8 shrink-0 rounded-lg px-3 text-xs font-medium text-ink-2 ring-1 ring-line transition-colors hover:text-ink disabled:opacity-50">
         Сохранить

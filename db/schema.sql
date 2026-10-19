@@ -37,5 +37,8 @@ create table if not exists clicks (
   is_bot boolean not null default false
 );
 
+-- Случайный ID телефона из cookie: для подсчёта уникальных гостей
+alter table clicks add column if not exists visitor_id uuid;
+
 create index if not exists clicks_tag_ts_idx on clicks (tag_id, ts);
 create index if not exists tags_venue_idx on tags (venue_id);
