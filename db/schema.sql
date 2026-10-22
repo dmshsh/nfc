@@ -37,6 +37,17 @@ create table if not exists clicks (
   is_bot boolean not null default false
 );
 
+-- Что происходит при скане: 'redirect' — сразу на отзыв, 'choice' — экран выбора (отзыв + соцсети)
+alter table tags add column if not exists mode text not null default 'redirect';
+
+-- Соцсети заведения для экрана выбора; нет строки — нет кнопки
+create table if not exists venue_links (
+  venue_id uuid not null references venues(id) on delete cascade,
+  kind text not null, -- instagram | tiktok | whatsapp
+  url text not null,
+  primary key (venue_id, kind)
+);
+
 -- Случайный ID телефона из cookie: для подсчёта уникальных гостей
 alter table clicks add column if not exists visitor_id uuid;
 

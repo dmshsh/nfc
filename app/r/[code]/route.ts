@@ -10,7 +10,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ code
   const gone = () => NextResponse.redirect(new URL('/gone', req.url), 302);
   if (!/^[a-z0-9_-]{1,64}$/i.test(code)) return gone();
 
-  const [tag] = await sql`select id, target_url from tags where code = ${code}`;
+  const [tag] = await sql`select id, target_url, mode from tags where code = ${code}`;
   if (!tag) return gone();
 
   const ua = req.headers.get('user-agent') ?? '';
@@ -38,8 +38,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ code
     }
   });
 
-  // 302, не 301: иначе браузер закэширует и клики перестанут считаться
-  const res = NextResponse.redirect(tag.target_url, 302);
+  // 302, не 301: иначе браузер закэширует и клики перестанут считаться.
+  // В режиме 'choice' гость сначала попадает на экран выбора (отзыв или соцсети)
+  const dest = tag.mode === 'choice' ? new URL(`/c/${code}`, req.url) : tag.target_url;
+  const res = NextResponse.redirect(dest, 302);
   res.cookies.set(VISITOR_COOKIE, visitorId, {
     path: '/r',
     maxAge: 60 * 60 * 24 * 365,

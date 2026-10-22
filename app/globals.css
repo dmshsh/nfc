@@ -3,19 +3,24 @@
 @theme {
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
-  --color-page: #f7f7f5;
+  --color-page: #f5f5f5;
   --color-card: #ffffff;
-  --color-ink: #0b0b0b;
-  --color-ink-2: #52514e;
-  --color-muted: #6f6d68;
-  --color-line: #e6e5df;
-  --color-grid: #efeee9;
-  --color-accent: #2a78d6;
-  --color-accent-hover: #256abf;
-  --color-accent-soft: #e3eefb;
-  --color-good: #006300;
-  --color-bad: #c02d2d;
-  --color-bad-soft: #fdecec;
+  --color-ink: #2b2b2b;
+  --color-ink-2: #555555;
+  --color-muted: #767676;
+  --color-line: #e3e3e3;
+  --color-grid: #eeeeee;
+  --color-accent: #1e91cf;
+  --color-accent-hover: #1978ab;
+  --color-accent-soft: #e4f2fa;
+  --color-good: #3a8a3a;
+  --color-bad: #c9302c;
+  --color-bad-soft: #fbeaea;
+  /* Тёмная шапка, как боковое меню OpenCart */
+  --color-nav: #1f2a36;
+  --color-nav-ink: #ffffff;
+  --color-nav-muted: #9aa7b4;
+  --color-nav-hover: #2a3744;
 }
 
 :root {
@@ -25,19 +30,23 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
-    --color-page: #0d0d0d;
-    --color-card: #1a1a19;
-    --color-ink: #f0efec;
-    --color-ink-2: #c3c2b7;
-    --color-muted: #9a988f;
-    --color-line: #2c2c2a;
-    --color-grid: #242422;
-    --color-accent: #3987e5;
-    --color-accent-hover: #5598e7;
-    --color-accent-soft: #1a2c44;
-    --color-good: #0ca30c;
+    --color-page: #121518;
+    --color-card: #1b2026;
+    --color-ink: #eef1f4;
+    --color-ink-2: #c0c7cf;
+    --color-muted: #8e98a3;
+    --color-line: #2b323a;
+    --color-grid: #232a31;
+    --color-accent: #2ea3e0;
+    --color-accent-hover: #4cb2e6;
+    --color-accent-soft: #13314a;
+    --color-good: #4cb64c;
     --color-bad: #e66767;
     --color-bad-soft: #3a1d1d;
+    --color-nav: #161b21;
+    --color-nav-ink: #eef1f4;
+    --color-nav-muted: #8e98a3;
+    --color-nav-hover: #232a31;
   }
 }
 

@@ -4,12 +4,13 @@ import { AreaChart, HourChart } from './charts';
 import { Badge, CARRIERS, Card, Empty } from './ui';
 
 type Row = { label: string; n: number };
-type TagRow = { code: string; label: string; carrier: string | null; n: number; u: number; last: string | Date | null };
+type TagRow = { code: string; venue: string; label: string; carrier: string | null; n: number; u: number; last: string | Date | null };
 
 const TZ = 'Asia/Almaty';
 
-// Все выборки считаются по календарным дням Алматы: последние `days` дней, включая сегодня
-export async function Stats({ venueId, days }: { venueId: string; days: number }) {
+// Все выборки считаются по календарным дням Алматы: последние `days` дней, включая сегодня.
+// venueId = null — сводка по всем заведениям (дашборд админки)
+export async function Stats({ venueId, days }: { venueId: string | null; days: number }) {
   const [daily, [prev], [uniq], byCarrier, byOs, byHour, tags] = (await Promise.all([
     sql`
       select to_char(d, 'YYYY-MM-DD') as date, coalesce(x.n, 0)::int as n
@@ -21,14 +22,14 @@ export async function Stats({ venueId, days }: { venueId: string; days: number }
       left join (
         select (c.ts at time zone 'Asia/Almaty')::date as day, count(*) as n
         from clicks c join tags t on t.id = c.tag_id
-        where t.venue_id = ${venueId} and not c.is_bot
+        where (${venueId}::uuid is null or t.venue_id = ${venueId}::uuid) and not c.is_bot
         group by 1
       ) x on x.day = d::date
       order by d`,
     sql`
       select count(*)::int as n
       from clicks c join tags t on t.id = c.tag_id
-      where t.venue_id = ${venueId} and not c.is_bot
+      where (${venueId}::uuid is null or t.venue_id = ${venueId}::uuid) and not c.is_bot
         and (c.ts at time zone 'Asia/Almaty')::date
             between (now() at time zone 'Asia/Almaty')::date - (${2 * days - 1})::int
                 and (now() at time zone 'Asia/Almaty')::date - (${days})::int`,
@@ -36,28 +37,28 @@ export async function Stats({ venueId, days }: { venueId: string; days: number }
     sql`
       select count(distinct c.visitor_id)::int as n
       from clicks c join tags t on t.id = c.tag_id
-      where t.venue_id = ${venueId} and not c.is_bot
+      where (${venueId}::uuid is null or t.venue_id = ${venueId}::uuid) and not c.is_bot
         and (c.ts at time zone 'Asia/Almaty')::date > (now() at time zone 'Asia/Almaty')::date - (${days})::int`,
     sql`
       select coalesce(t.carrier, 'Другое') as label, count(*)::int as n
       from clicks c join tags t on t.id = c.tag_id
-      where t.venue_id = ${venueId} and not c.is_bot
+      where (${venueId}::uuid is null or t.venue_id = ${venueId}::uuid) and not c.is_bot
         and (c.ts at time zone 'Asia/Almaty')::date > (now() at time zone 'Asia/Almaty')::date - (${days})::int
       group by 1 order by n desc`,
     sql`
       select coalesce(c.os, 'Другое') as label, count(*)::int as n
       from clicks c join tags t on t.id = c.tag_id
-      where t.venue_id = ${venueId} and not c.is_bot
+      where (${venueId}::uuid is null or t.venue_id = ${venueId}::uuid) and not c.is_bot
         and (c.ts at time zone 'Asia/Almaty')::date > (now() at time zone 'Asia/Almaty')::date - (${days})::int
       group by 1 order by n desc`,
     sql`
       select extract(hour from c.ts at time zone 'Asia/Almaty')::int::text as label, count(*)::int as n
       from clicks c join tags t on t.id = c.tag_id
-      where t.venue_id = ${venueId} and not c.is_bot
+      where (${venueId}::uuid is null or t.venue_id = ${venueId}::uuid) and not c.is_bot
         and (c.ts at time zone 'Asia/Almaty')::date > (now() at time zone 'Asia/Almaty')::date - (${days})::int
       group by 1`,
     sql`
-      select t.code, coalesce(t.location_label, t.code) as label, t.carrier,
+      select t.code, v.name as venue, coalesce(t.location_label, t.code) as label, t.carrier,
              count(c.id) filter (
                where (c.ts at time zone 'Asia/Almaty')::date > (now() at time zone 'Asia/Almaty')::date - (${days})::int
              )::int as n,
@@ -65,9 +66,10 @@ export async function Stats({ venueId, days }: { venueId: string; days: number }
                where (c.ts at time zone 'Asia/Almaty')::date > (now() at time zone 'Asia/Almaty')::date - (${days})::int
              )::int as u,
              max(c.ts) as last
-      from tags t left join clicks c on c.tag_id = t.id and not c.is_bot
-      where t.venue_id = ${venueId}
-      group by t.id
+      from tags t join venues v on v.id = t.venue_id
+        left join clicks c on c.tag_id = t.id and not c.is_bot
+      where (${venueId}::uuid is null or t.venue_id = ${venueId}::uuid)
+      group by t.id, v.name
       order by n desc, t.created_at`,
   ])) as unknown as [{ date: string; n: number }[], Row[], Row[], Row[], Row[], Row[], TagRow[]];
 
@@ -87,7 +89,7 @@ export async function Stats({ venueId, days }: { venueId: string; days: number }
         <Kpi
           label="Лучшая метка"
           value={best?.label ?? '—'}
-          foot={best ? `${best.n} ${clicksWord(best.n)}` : 'нет переходов'}
+          foot={best ? `${venueId ? '' : `${best.venue} · `}${best.n} ${clicksWord(best.n)}` : 'нет переходов'}
           small
           className="col-span-2 lg:col-span-1"
         />
@@ -110,8 +112,8 @@ export async function Stats({ venueId, days }: { venueId: string; days: number }
         {total === 0 ? <Empty /> : <HourChart data={hours} />}
       </Card>
 
-      <Card title="Метки" subtitle={`Все метки заведения, переходы за ${days} дн.`} flush>
-        <TagTable rows={tags} total={total} />
+      <Card title="Метки" subtitle={`${venueId ? 'Все метки заведения' : 'Все метки всех заведений'}, переходы за ${days} дн.`} flush>
+        <TagTable rows={tags} total={total} showVenue={!venueId} />
       </Card>
     </div>
   );
@@ -171,7 +173,7 @@ const lastFmt = new Intl.DateTimeFormat('ru-RU', {
   minute: '2-digit',
 });
 
-function TagTable({ rows, total }: { rows: TagRow[]; total: number }) {
+function TagTable({ rows, total, showVenue }: { rows: TagRow[]; total: number; showVenue: boolean }) {
   if (rows.length === 0) return <div className="px-5 pb-5"><Empty text="Меток пока нет" /></div>;
   return (
     <div className="overflow-x-auto">
@@ -191,7 +193,10 @@ function TagTable({ rows, total }: { rows: TagRow[]; total: number }) {
             const share = total ? Math.round((r.n / total) * 100) : 0;
             return (
               <tr key={r.code} className="transition-colors hover:bg-page/60">
-                <td className="px-5 py-3 font-medium text-ink">{r.label}</td>
+                <td className="px-5 py-3 font-medium text-ink">
+                  {showVenue && <div className="text-xs font-normal text-muted">{r.venue}</div>}
+                  {r.label}
+                </td>
                 <td className="px-3 py-3">{r.carrier ? <Badge>{CARRIERS[r.carrier] ?? r.carrier}</Badge> : <span className="text-muted">—</span>}</td>
                 <td className="px-3 py-3 text-right font-medium tabular-nums text-ink">{r.n}</td>
                 <td className="px-3 py-3 text-right tabular-nums text-ink-2">{r.u}</td>

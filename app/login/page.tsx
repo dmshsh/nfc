@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import { redirect } from 'next/navigation';
 import { sql } from '@/lib/db';
 import { createSession } from '@/lib/session';
-import { Logo, btnPrimary, inputCls } from '@/components/ui';
+import { btnPrimary, inputCls } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,8 +29,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
     <main className="flex min-h-screen items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center">
-          <Logo size={44} />
-          <h1 className="mt-4 text-xl font-semibold tracking-tight text-ink">Вход в кабинет</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-ink">Вход в кабинет</h1>
           <p className="mt-1 text-sm text-muted">Статистика отзывов по NFC-меткам</p>
         </div>
         <form action={login} className="space-y-4 rounded-xl bg-card p-6 shadow-sm ring-1 ring-line">
